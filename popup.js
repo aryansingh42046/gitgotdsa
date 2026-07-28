@@ -9,6 +9,17 @@ function setStatus(el, msg, ok) {
   el.className = "status " + (ok ? "ok" : "err");
 }
 
+function setConnectedUi(login) {
+  const button = $("connect");
+  button.textContent = "Reconnect GitHub";
+  button.disabled = false;
+  setStatus(
+    $("tokenStatus"),
+    login ? `Connected as ${login}` : "Account linked",
+    true,
+  );
+}
+
 function showAuthCode(device) {
   if (!device || !device.user_code) {
     $("authCard").hidden = true;
@@ -110,6 +121,8 @@ function fillRepos(list, selected) {
 async function init() {
   const cfg = await chrome.storage.local.get([
     "token",
+    "login",
+    "avatar",
     "owner",
     "repo",
     "folderMode",
@@ -120,10 +133,21 @@ async function init() {
   ]);
 
   if (cfg.token) {
+    let login = cfg.login;
+    if (!login) {
+      try {
+        const user = await gh("/user", cfg.token);
+        login = user.login;
+        await chrome.storage.local.set({ login, avatar: user.avatar_url });
+      } catch {
+        login = null;
+      }
+    }
+
     if (cfg.repos && cfg.repos.length) {
       fillRepos(cfg.repos, cfg.owner && cfg.repo ? `${cfg.owner}/${cfg.repo}` : null);
     }
-    setStatus($("tokenStatus"), "Account linked", true);
+    setConnectedUi(login);
   }
   if (cfg.folderMode) $("folderMode").value = cfg.folderMode;
 
@@ -178,10 +202,16 @@ $("connect").addEventListener("click", async () => {
     ]);
 
     const repoNames = repos.map((repo) => repo.full_name);
-    await chrome.storage.local.set({ token, repos: repoNames, pendingAuth: null });
+    await chrome.storage.local.set({
+      token,
+      login: user.login,
+      avatar: user.avatar_url,
+      repos: repoNames,
+      pendingAuth: null,
+    });
     fillRepos(repoNames);
     showAuthCode(null);
-    setStatus($("tokenStatus"), `Linked as ${user.login}`, true);
+    setConnectedUi(user.login);
   } catch (err) {
     setStatus($("tokenStatus"), err.message || "Failed", false);
   } finally {
