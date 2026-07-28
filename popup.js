@@ -33,15 +33,6 @@ async function init() {
   if (cfg.folderMode) $("folderMode").value = cfg.folderMode;
 
   const history = cfg.history || [];
-  const solved = cfg.solved || {};
-  $("statSolved").textContent = Object.keys(solved).length;
-  $("statPushes").textContent = history.length;
-  $("statStreak").textContent = history[0]
-    ? new Date(history[0].at).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      })
-    : "–";
   $("history").innerHTML = history
     .slice(0, 8)
     .map(
