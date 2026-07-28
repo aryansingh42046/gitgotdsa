@@ -9,6 +9,17 @@ function setStatus(el, msg, ok) {
   el.className = "status " + (ok ? "ok" : "err");
 }
 
+function showAuthCode(device) {
+  if (!device || !device.user_code) {
+    $("authCard").hidden = true;
+    return;
+  }
+
+  $("authCode").textContent = device.user_code;
+  $("authLink").textContent = device.verification_uri_complete || device.verification_uri || "";
+  $("authCard").hidden = false;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -105,6 +116,7 @@ async function init() {
     "repos",
     "history",
     "solved",
+    "pendingAuth",
   ]);
 
   if (cfg.token) {
@@ -114,6 +126,13 @@ async function init() {
     setStatus($("tokenStatus"), "Account linked", true);
   }
   if (cfg.folderMode) $("folderMode").value = cfg.folderMode;
+
+  if (cfg.pendingAuth && !cfg.token) {
+    showAuthCode(cfg.pendingAuth);
+    setStatus($("tokenStatus"), "Waiting for GitHub authorization...", true);
+  } else {
+    showAuthCode(null);
+  }
 
   const history = cfg.history || [];
   $("history").innerHTML = history
@@ -133,6 +152,14 @@ $("connect").addEventListener("click", async () => {
   try {
     const device = await requestGithubDeviceCode();
     const verificationUri = device.verification_uri_complete || device.verification_uri;
+    await chrome.storage.local.set({
+      pendingAuth: {
+        user_code: device.user_code,
+        verification_uri: device.verification_uri,
+        verification_uri_complete: verificationUri,
+      },
+    });
+    showAuthCode(device);
 
     if (verificationUri) {
       chrome.tabs.create({ url: verificationUri });
@@ -151,8 +178,9 @@ $("connect").addEventListener("click", async () => {
     ]);
 
     const repoNames = repos.map((repo) => repo.full_name);
-    await chrome.storage.local.set({ token, repos: repoNames });
+    await chrome.storage.local.set({ token, repos: repoNames, pendingAuth: null });
     fillRepos(repoNames);
+    showAuthCode(null);
     setStatus($("tokenStatus"), `Linked as ${user.login}`, true);
   } catch (err) {
     setStatus($("tokenStatus"), err.message || "Failed", false);
