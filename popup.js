@@ -1,8 +1,91 @@
 const $ = (id) => document.getElementById(id);
 
+const API = "https://api.github.com";
+const GITHUB = "https://github.com";
+const GITHUB_CLIENT_ID = "Ov23liKs63XCAoeIZsjI";
+
 function setStatus(el, msg, ok) {
   el.textContent = msg;
   el.className = "status " + (ok ? "ok" : "err");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function gh(path, token) {
+  const res = await fetch(`${API}${path}`, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const text = await res.text();
+  let body = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = null;
+  }
+  if (!res.ok) {
+    throw new Error((body && body.message) || `GitHub error ${res.status}`);
+  }
+  return body;
+}
+
+async function requestGithubDeviceCode() {
+  const deviceRes = await fetch(`${GITHUB}/login/device/code`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ client_id: GITHUB_CLIENT_ID, scope: "repo" }).toString(),
+  });
+  const device = await deviceRes.json();
+  if (!deviceRes.ok) {
+    throw new Error(device.error_description || device.error || "GitHub login failed");
+  }
+  return device;
+}
+
+async function pollGithubAccessToken(device) {
+  const interval = Math.max(1, Number(device.interval) || 5) * 1000;
+  const startedAt = Date.now();
+  const expiresIn = Math.max(60, Number(device.expires_in) || 900) * 1000;
+
+  while (Date.now() - startedAt < expiresIn) {
+    await sleep(interval);
+
+    const tokenRes = await fetch(`${GITHUB}/login/oauth/access_token`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: GITHUB_CLIENT_ID,
+        device_code: device.device_code,
+        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+      }).toString(),
+    });
+    const tokenBody = await tokenRes.json();
+
+    if (tokenBody.access_token) {
+      return tokenBody.access_token;
+    }
+
+    if (tokenBody.error === "authorization_pending") continue;
+    if (tokenBody.error === "slow_down") continue;
+    if (tokenBody.error === "expired_token") {
+      throw new Error("GitHub login expired. Try again.");
+    }
+    if (tokenBody.error) {
+      throw new Error(tokenBody.error_description || tokenBody.error);
+    }
+  }
+
+  throw new Error("GitHub login timed out. Try again.");
 }
 
 function fillRepos(list, selected) {
@@ -42,23 +125,40 @@ async function init() {
     .join("");
 }
 
-$("connect").addEventListener("click", () => {
-  setStatus($("tokenStatus"), "Waiting for GitHub authorization…", true);
-  chrome.runtime.sendMessage({ type: "CONNECT_GITHUB" }, async (res) => {
-    if (!res || !res.ok) {
-      return setStatus($("tokenStatus"), (res && res.error) || "Failed", false);
+$("connect").addEventListener("click", async () => {
+  const button = $("connect");
+  button.disabled = true;
+  setStatus($("tokenStatus"), "Starting GitHub authorization...", true);
+
+  try {
+    const device = await requestGithubDeviceCode();
+    const verificationUri = device.verification_uri_complete || device.verification_uri;
+
+    if (verificationUri) {
+      chrome.tabs.create({ url: verificationUri });
     }
-    await chrome.storage.local.set({ token: res.token, repos: res.repos });
-    fillRepos(res.repos);
-    if (res.verificationUri) {
-      chrome.tabs.create({ url: res.verificationUri });
-    }
+
     setStatus(
       $("tokenStatus"),
-      `Open ${res.verificationUri || "GitHub"} and enter code ${res.userCode}. Linked as ${res.login}`,
+      `Open GitHub and enter code ${device.user_code}. Waiting for authorization...`,
       true,
     );
-  });
+
+    const token = await pollGithubAccessToken(device);
+    const [user, repos] = await Promise.all([
+      gh("/user", token),
+      gh("/user/repos?per_page=100&sort=updated&affiliation=owner", token),
+    ]);
+
+    const repoNames = repos.map((repo) => repo.full_name);
+    await chrome.storage.local.set({ token, repos: repoNames });
+    fillRepos(repoNames);
+    setStatus($("tokenStatus"), `Linked as ${user.login}`, true);
+  } catch (err) {
+    setStatus($("tokenStatus"), err.message || "Failed", false);
+  } finally {
+    button.disabled = false;
+  }
 });
 
 $("create").addEventListener("click", async () => {
