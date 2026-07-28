@@ -196,22 +196,26 @@ $("connect").addEventListener("click", async () => {
     );
 
     const token = await pollGithubAccessToken(device);
-    const [user, repos] = await Promise.all([
-      gh("/user", token),
-      gh("/user/repos?per_page=100&sort=updated&affiliation=owner", token),
-    ]);
+    const user = await gh("/user", token);
 
-    const repoNames = repos.map((repo) => repo.full_name);
     await chrome.storage.local.set({
       token,
       login: user.login,
       avatar: user.avatar_url,
-      repos: repoNames,
       pendingAuth: null,
     });
-    fillRepos(repoNames);
     showAuthCode(null);
     setConnectedUi(user.login);
+
+    gh("/user/repos?per_page=100&sort=updated&affiliation=owner", token)
+      .then(async (repos) => {
+        const repoNames = repos.map((repo) => repo.full_name);
+        await chrome.storage.local.set({ repos: repoNames });
+        fillRepos(repoNames);
+      })
+      .catch(() => {
+        // Repos are optional for the connected state; the popup stays usable.
+      });
   } catch (err) {
     setStatus($("tokenStatus"), err.message || "Failed", false);
   } finally {
