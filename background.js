@@ -107,16 +107,11 @@ async function githubDeviceLogin() {
 
     if (tokenBody.access_token) {
       const user = await gh("/user", tokenBody.access_token);
-      const repos = await gh(
-        "/user/repos?per_page=100&sort=updated&affiliation=owner",
-        tokenBody.access_token,
-      );
       return {
         ok: true,
         token: tokenBody.access_token,
         login: user.login,
         avatar: user.avatar_url,
-        repos: repos.map((r) => r.full_name),
         userCode: device.user_code,
         verificationUri: device.verification_uri_complete || device.verification_uri,
       };

@@ -155,12 +155,19 @@ $("connect").addEventListener("click", async () => {
         token: res.token,
         login: res.login,
         avatar: res.avatar,
-        repos: res.repos,
         pendingAuth: null,
       });
-      fillRepos(res.repos);
       showAuthCode(null);
       setConnectedUi(res.login);
+      gh("/user/repos?per_page=100&sort=updated&affiliation=owner", res.token)
+        .then(async (repos) => {
+          const repoNames = repos.map((repo) => repo.full_name);
+          await chrome.storage.local.set({ repos: repoNames });
+          fillRepos(repoNames);
+        })
+        .catch(() => {
+          // Repository loading is best effort; connection state is already saved.
+        });
       button.disabled = false;
     });
   } catch (err) {
