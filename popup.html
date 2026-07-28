@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+    <title>GitGotDSA</title>
+  </head>
+  <body>
+    <div class="popup">
+      <div class="brand"><span class="dot"></span> GitGotDSA</div>
+      <p class="muted" style="margin: 6px 0 0; font-size: 12px">
+        Accepted submissions from your own supported platform pages, pushed to GitHub automatically.
+      </p>
+
+      <div class="card" id="setup">
+        <button id="connect">Connect GitHub</button>
+        <div class="status" id="tokenStatus"></div>
+      </div>
+
+      <div class="card" id="repoCard" hidden>
+        <label for="repo">Solutions repository</label>
+        <select id="repo"></select>
+        <div class="row">
+          <input id="newRepo" placeholder="new-repo-name" />
+          <button id="create" class="ghost" style="margin-top: 0">Create</button>
+        </div>
+        <label for="folderMode" style="margin-top: 12px">Folder layout</label>
+        <select id="folderMode">
+          <option value="flat">0001-two-sum/</option>
+          <option value="difficulty">Easy/0001-two-sum/</option>
+        </select>
+        <button id="save">Save settings</button>
+        <div class="status" id="saveStatus"></div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="stat"><b id="statSolved">0</b><span>PROBLEMS</span></div>
+          <div class="stat"><b id="statPushes">0</b><span>PUSHES</span></div>
+          <div class="stat"><b id="statStreak">–</b><span>LAST</span></div>
+        </div>
+        <ul class="list" id="history"></ul>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
