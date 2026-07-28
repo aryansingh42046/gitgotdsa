@@ -76,6 +76,14 @@ async function githubDeviceLogin() {
     throw new Error(device.error_description || device.error || "GitHub login failed");
   }
 
+  await chrome.storage.local.set({
+    pendingAuth: {
+      user_code: device.user_code,
+      verification_uri: device.verification_uri,
+      verification_uri_complete: device.verification_uri_complete,
+    },
+  });
+
   const interval = Math.max(1, Number(device.interval) || 5) * 1000;
   const startedAt = Date.now();
   const expiresIn = Math.max(60, Number(device.expires_in) || 900) * 1000;
@@ -110,7 +118,7 @@ async function githubDeviceLogin() {
         avatar: user.avatar_url,
         repos: repos.map((r) => r.full_name),
         userCode: device.user_code,
-        verificationUri: device.verification_uri,
+        verificationUri: device.verification_uri_complete || device.verification_uri,
       };
     }
 
@@ -259,14 +267,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     (async () => {
       try {
         const res = await githubDeviceLogin();
-        await chrome.storage.local.set({ token: res.token, repos: res.repos });
+        await chrome.storage.local.set({
+          token: res.token,
+          login: res.login,
+          avatar: res.avatar,
+          repos: res.repos,
+          pendingAuth: null,
+        });
         sendResponse({
           ok: true,
           login: res.login,
           avatar: res.avatar,
           repos: res.repos,
+          token: res.token,
         });
       } catch (err) {
+        await chrome.storage.local.set({ pendingAuth: null });
         sendResponse({ ok: false, error: err.message });
       }
     })();
