@@ -84,6 +84,10 @@ async function githubDeviceLogin() {
     },
   });
 
+  await chrome.tabs.create({
+    url: device.verification_uri_complete || device.verification_uri,
+  });
+
   const interval = Math.max(1, Number(device.interval) || 5) * 1000;
   const startedAt = Date.now();
   const expiresIn = Math.max(60, Number(device.expires_in) || 900) * 1000;
