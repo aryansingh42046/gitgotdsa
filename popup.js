@@ -21,6 +21,11 @@ function setConnectedUi(login) {
     login ? `Connected as ${login}` : "Account linked",
     true,
   );
+  $("connectedCard").hidden = false;
+  $("connectedTitle").textContent = login ? `Connected as ${login}` : "Connected to GitHub";
+  $("connectedSub").textContent = login
+    ? "Your GitHub account is linked and ready."
+    : "Your GitHub account is linked and ready.";
 }
 
 function showAuthCode(device) {
@@ -147,6 +152,8 @@ async function init() {
       fillRepos(cfg.repos, cfg.owner && cfg.repo ? `${cfg.owner}/${cfg.repo}` : null);
     }
     setConnectedUi(login);
+  } else {
+    $("connectedCard").hidden = true;
   }
   if (cfg.folderMode) $("folderMode").value = cfg.folderMode;
 

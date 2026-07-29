@@ -154,6 +154,25 @@ button.ghost {
   user-select: all;
 }
 
+.connected {
+  border-color: rgba(124, 240, 165, 0.35);
+}
+
+.connectedRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.connectedDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 16px var(--accent);
+  flex: 0 0 auto;
+}
+
 ul.list {
   list-style: none;
   margin: 8px 0 0;
